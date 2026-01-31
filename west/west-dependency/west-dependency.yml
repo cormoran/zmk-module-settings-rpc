@@ -1,0 +1,9 @@
+# List of this module's dependencies
+manifest:
+  # remotes:
+  #   - name: remote-name
+  #     url-base: https://github.com/remote-name
+  # projects:
+  #   - name: repository-name
+  #     remote: remote-name
+  #     revision: branch-or-tag-name

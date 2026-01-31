@@ -1,0 +1,23 @@
+{
+  "name": "ZMK Development",
+  "image": "docker.io/zmkfirmware/zmk-dev-arm:3.5",
+  "containerEnv": {
+    "WORKSPACE_DIR": "${containerWorkspaceFolder}",
+    "PROMPT_COMMAND": "history -a"
+  },
+  "mounts": [
+    "type=volume,source=zmk-dependencies,target=/${containerWorkspaceFolder}/dependencies",
+    "type=volume,source=zmk-build,target=/${containerWorkspaceFolder}/build",
+    // The same to ZMK's official devcontainer
+    "type=volume,source=zmk-root-user,target=/root"
+  ],
+  "onCreateCommand": "[ -e .west ] || west init -l west --mf west-test-standalone.yml",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-vscode.cpptools"],
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash"
+      }
+    }
+  }
+}

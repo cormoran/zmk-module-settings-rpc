@@ -1,0 +1,15 @@
+if SHIELD_MY_AWESOME_KEYBOARD
+
+config ZMK_KEYBOARD_NAME
+    default "MAK"
+
+config ZMK_BLE
+    def_bool n
+
+config SETTINGS
+    def_bool n
+
+config MY_AWESOME_KEYBOARD_SPECIAL_FEATURE
+    bool "Enable special feature for My Awesome Keyboard"
+
+endif

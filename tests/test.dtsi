@@ -1,0 +1,51 @@
+#include <physical_layouts.dtsi>
+#include <dt-bindings/zmk/matrix_transform.h>
+/ {
+	physical_layout: physical_layout {
+		compatible = "zmk,physical-layout";
+		display-name = "Custom Layout";
+		keys
+		= <&key_physical_attrs 100 100    0    0      0    0    0>
+		, <&key_physical_attrs 100 100    0  100      0    0    0>
+		, <&key_physical_attrs 100 100    0  200      0    0    0>
+		, <&key_physical_attrs 100 100    0  300      0    0    0>
+		;
+		transform = <&transform0>;
+	};
+	transform0: transform0 {
+		compatible = "zmk,matrix-transform";
+		columns = <2>;
+		rows = <2>;
+		map = <
+		RC(0,0)  RC(0,1)  RC(1,0)  RC(1, 1)
+		>;
+	};
+};
+
+#include <dt-bindings/zmk/keys.h>
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/kscan_mock.h>
+
+/ {
+	keymap {
+		compatible = "zmk,keymap";
+		
+		default_layer {
+			bindings = <
+			&kp A
+			&kp A
+			&kp A
+			&kp A
+			>;
+		};
+	};
+};
+
+&kscan {
+	events = <
+	ZMK_MOCK_PRESS(0,0,10)
+	ZMK_MOCK_RELEASE(0,0,10)
+	ZMK_MOCK_PRESS(0,0,10)
+	ZMK_MOCK_RELEASE(0,0,10)
+	>;
+};

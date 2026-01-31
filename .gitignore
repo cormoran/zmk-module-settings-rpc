@@ -1,0 +1,4 @@
+dependencies/
+.west
+__pycache__
+build

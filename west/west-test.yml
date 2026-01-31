@@ -1,0 +1,6 @@
+# test env manifest to setup dependencies under <west topdir>
+# should be initialized with cd repo && west init -l . --mf west/west-test.yml
+manifest:
+  self:
+    import: west/west-dependency # import both west-dependency.yml and west-test-dependency.yml
+  # Please edit west/west-dependency/ to change dependencies

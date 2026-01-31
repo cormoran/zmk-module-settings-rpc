@@ -1,0 +1,2 @@
+config SHIELD_MY_AWESOME_KEYBOARD
+    def_bool $(shields_list_contains,my_awesome_keyboard)

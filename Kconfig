@@ -1,0 +1,10 @@
+config ZMK_TEMPLATE_FEATURE
+    bool "Enable template feature"
+
+if ZMK_TEMPLATE_FEATURE
+
+config ZMK_TEMPLATE_FEATURE_STUDIO_RPC
+    bool "Enable template feature custom Studio RPC"
+    depends on ZMK_STUDIO
+
+endif

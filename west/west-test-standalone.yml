@@ -1,0 +1,9 @@
+# test env manifest to setup dependencies under <west topdir>/dependencies
+# should be initialized with west init -l west --mf west-test-standalone.yml
+manifest:
+  self:
+    path: west
+    import:
+      file: west-dependency # import both west-dependency.yml and west-test-dependency.yml
+      path-prefix: dependencies
+  # Please edit west/west-dependency/ to change dependencies

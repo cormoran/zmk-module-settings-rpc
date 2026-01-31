@@ -1,0 +1,5 @@
+file_format: "1"
+id: my_awesome_keyboard
+name: My Awesome Keyboard
+type: shield
+requires: [seeed_xiao]
