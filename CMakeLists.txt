@@ -1,12 +1,14 @@
-# Template Feature CMakeLists.txt
+# ZMK Settings RPC Module CMakeLists.txt
 
 # Include directories
 zephyr_include_directories(include)
-if(CONFIG_ZMK_TEMPLATE_FEATURE)
-    # target_sources(app PRIVATE ...)
+if(CONFIG_ZMK_SETTINGS_RPC)
+    # Add event source files
+    target_sources(app PRIVATE src/events/activity_settings_changed.c)
+    target_sources(app PRIVATE src/events/activity_settings_report.c)
 
-    if(CONFIG_ZMK_TEMPLATE_FEATURE_STUDIO_RPC)
-        file(GLOB_RECURSE C_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c)
+    if(CONFIG_ZMK_SETTINGS_RPC_STUDIO)
+        file(GLOB_RECURSE C_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/studio/*.c)
         target_sources(app PRIVATE ${C_FILES})
 
         list(APPEND CMAKE_MODULE_PATH ${ZEPHYR_BASE}/modules/nanopb)

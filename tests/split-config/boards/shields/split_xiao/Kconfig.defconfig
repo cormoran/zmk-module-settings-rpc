@@ -1,0 +1,13 @@
+if SHIELD_SPLIT_XIAO_RIGHT
+
+config ZMK_KEYBOARD_NAME
+    default "SPLITXIAO"
+
+config ZMK_SPLIT_ROLE_CENTRAL
+    def_bool y
+endif
+
+if SHIELD_SPLIT_XIAO_RIGHT || SHIELD_SPLIT_XIAO_LEFT
+config ZMK_SPLIT
+    def_bool y
+endif

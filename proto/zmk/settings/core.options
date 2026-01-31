@@ -1,0 +1,4 @@
+# Nanopb options file for core.proto
+# This defines max sizes for string fields
+
+zmk.settings.ErrorResponse.message                             max_size:64

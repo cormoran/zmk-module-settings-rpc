@@ -1,0 +1,328 @@
+/**
+ * ZMK Core Settings - Custom Studio RPC Handler
+ *
+ * This file implements custom RPC handlers for getting and setting
+ * ZMK core settings like sleep/idle timeouts, with support for
+ * split keyboard peripheral synchronization.
+ */
+
+#include <pb_decode.h>
+#include <pb_encode.h>
+#include <zephyr/logging/log.h>
+#include <zmk/activity.h>
+#include <zmk/event_manager.h>
+#include <zmk/events/activity_settings_changed.h>
+#include <zmk/events/activity_settings_report.h>
+#include <zmk/settings/core.pb.h>
+#include <zmk/studio/custom.h>
+LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
+
+/**
+ * Metadata for the custom subsystem.
+ * - ui_urls: URLs where the custom UI can be loaded from
+ * - security: Security level for the RPC handler
+ */
+static struct zmk_rpc_custom_subsystem_meta settings_rpc_meta = {
+    ZMK_RPC_CUSTOM_SUBSYSTEM_UI_URLS("http://localhost:5173"),
+    // Unsecured is suggested by default to avoid unlocking in unreliable
+    // environments
+    .security = ZMK_STUDIO_RPC_HANDLER_UNSECURED,
+};
+
+/**
+ * Register the custom RPC subsystem.
+ * The first argument is the subsystem name used to route requests from the
+ * frontend. Format: <namespace>__<feature> (double underscore)
+ */
+ZMK_RPC_CUSTOM_SUBSYSTEM(zmk__settings, &settings_rpc_meta,
+                         settings_rpc_handle_request);
+
+ZMK_RPC_CUSTOM_SUBSYSTEM_RESPONSE_BUFFER(zmk__settings, zmk_settings_Response);
+
+static int handle_get_activity_settings(
+    const zmk_settings_GetActivitySettingsRequest *req,
+    zmk_settings_Response *resp);
+static int handle_set_activity_settings(
+    const zmk_settings_SetActivitySettingsRequest *req,
+    zmk_settings_Response *resp);
+static int handle_get_all_activity_settings(
+    const zmk_settings_GetAllActivitySettingsRequest *req,
+    zmk_settings_Response *resp);
+
+// Helper function to send activity settings notification
+static void send_activity_settings_notification(uint32_t idle_ms,
+                                                uint32_t sleep_ms,
+                                                uint32_t source);
+
+/**
+ * Main request handler for the settings RPC subsystem.
+ * Sets up the encoding callback for the response.
+ */
+static bool settings_rpc_handle_request(
+    const zmk_custom_CallRequest *raw_request, pb_callback_t *encode_response) {
+    zmk_settings_Response *resp =
+        ZMK_RPC_CUSTOM_SUBSYSTEM_RESPONSE_BUFFER_ALLOCATE(zmk__settings,
+                                                          encode_response);
+
+    zmk_settings_Request req = zmk_settings_Request_init_zero;
+
+    // Decode the incoming request from the raw payload
+    pb_istream_t req_stream = pb_istream_from_buffer(raw_request->payload.bytes,
+                                                     raw_request->payload.size);
+    if (!pb_decode(&req_stream, zmk_settings_Request_fields, &req)) {
+        LOG_WRN("Failed to decode settings request: %s",
+                PB_GET_ERROR(&req_stream));
+        zmk_settings_ErrorResponse err = zmk_settings_ErrorResponse_init_zero;
+        snprintf(err.message, sizeof(err.message), "Failed to decode request");
+        resp->which_response_type = zmk_settings_Response_error_tag;
+        resp->response_type.error = err;
+        return true;
+    }
+
+    int rc = 0;
+    switch (req.which_request_type) {
+        case zmk_settings_Request_get_activity_settings_tag:
+            rc = handle_get_activity_settings(
+                &req.request_type.get_activity_settings, resp);
+            break;
+        case zmk_settings_Request_set_activity_settings_tag:
+            rc = handle_set_activity_settings(
+                &req.request_type.set_activity_settings, resp);
+            break;
+        case zmk_settings_Request_get_all_activity_settings_tag:
+            rc = handle_get_all_activity_settings(
+                &req.request_type.get_all_activity_settings, resp);
+            break;
+        default:
+            LOG_WRN("Unsupported settings request type: %d",
+                    req.which_request_type);
+            rc = -1;
+    }
+
+    if (rc != 0) {
+        zmk_settings_ErrorResponse err = zmk_settings_ErrorResponse_init_zero;
+        snprintf(err.message, sizeof(err.message), "Failed to process request");
+        resp->which_response_type = zmk_settings_Response_error_tag;
+        resp->response_type.error = err;
+    }
+    return true;
+}
+
+/**
+ * Helper to encode activity settings notification payload
+ */
+static bool encode_activity_settings_notification(pb_ostream_t *stream,
+                                                  const pb_field_t *field,
+                                                  void *const *arg) {
+    zmk_settings_Notification *notification = (zmk_settings_Notification *)*arg;
+    if (!pb_encode_tag_for_field(stream, field)) {
+        return false;
+    }
+
+    size_t size;
+    if (!pb_get_encoded_size(&size, zmk_settings_Notification_fields,
+                             notification)) {
+        LOG_WRN("Failed to get encoded size for notification");
+        return false;
+    }
+
+    if (!pb_encode_varint(stream, size)) {
+        return false;
+    }
+    return pb_encode(stream, zmk_settings_Notification_fields, notification);
+}
+
+static int get_subsystem_index(void) {
+    size_t subsystem_count;
+    STRUCT_SECTION_COUNT(zmk_rpc_custom_subsystem, &subsystem_count);
+
+    for (size_t i = 0; i < subsystem_count; i++) {
+        struct zmk_rpc_custom_subsystem *custom_subsys;
+        STRUCT_SECTION_GET(zmk_rpc_custom_subsystem, i, &custom_subsys);
+        if (strcmp(custom_subsys->identifier, "zmk__settings") == 0) {
+            return (int)i;
+        }
+    }
+    return -1;
+}
+
+/**
+ * Helper function to send activity settings notification
+ */
+static void send_activity_settings_notification(uint32_t idle_ms,
+                                                uint32_t sleep_ms,
+                                                uint32_t source) {
+    int subsystem_idx = get_subsystem_index();
+    if (subsystem_idx < 0) {
+        LOG_ERR("Failed to get subsystem index");
+        return -ENOENT;
+    }
+    zmk_settings_Notification notification =
+        zmk_settings_Notification_init_zero;
+    notification.which_notification_type =
+        zmk_settings_Notification_activity_settings_tag;
+    notification.notification_type.activity_settings.has_settings     = true;
+    notification.notification_type.activity_settings.settings.idle_ms = idle_ms;
+    notification.notification_type.activity_settings.settings.sleep_ms =
+        sleep_ms;
+    notification.notification_type.activity_settings.settings.source = source;
+
+    struct zmk_studio_custom_notification event = {
+        .subsystem_index = subsystem_idx,
+        .encode_payload =
+            {
+                .funcs = {.encode = encode_activity_settings_notification},
+                .arg   = &notification,
+            },
+    };
+
+    raise_zmk_studio_custom_notification(event);
+    LOG_DBG("Sent activity settings notification: idle=%d, sleep=%d, source=%d",
+            idle_ms, sleep_ms, source);
+}
+
+/**
+ * Handle GetActivitySettings request - returns current sleep/idle timeouts
+ */
+static int handle_get_activity_settings(
+    const zmk_settings_GetActivitySettingsRequest *req,
+    zmk_settings_Response *resp) {
+    LOG_DBG("Received get activity settings request");
+
+    zmk_settings_GetActivitySettingsResponse result =
+        zmk_settings_GetActivitySettingsResponse_init_zero;
+
+    // Get current settings from ZMK activity subsystem
+    result.settings.idle_ms  = zmk_activity_get_idle_ms();
+    result.settings.sleep_ms = zmk_activity_get_sleep_ms();
+
+    LOG_DBG("Current activity settings: idle=%d ms, sleep=%d ms",
+            result.settings.idle_ms, result.settings.sleep_ms);
+
+    resp->which_response_type = zmk_settings_Response_get_activity_settings_tag;
+    resp->response_type.get_activity_settings = result;
+    return 0;
+}
+
+/**
+ * Handle SetActivitySettings request - updates sleep/idle timeouts
+ * and propagates to peripherals via events
+ */
+static int handle_set_activity_settings(
+    const zmk_settings_SetActivitySettingsRequest *req,
+    zmk_settings_Response *resp) {
+    LOG_DBG("Received set activity settings request: idle=%d ms, sleep=%d ms",
+            req->settings.idle_ms, req->settings.sleep_ms);
+
+    bool success = true;
+
+    // Update idle timeout
+    if (!zmk_activity_set_idle_ms(req->settings.idle_ms)) {
+        LOG_ERR("Failed to set idle timeout to %d ms", req->settings.idle_ms);
+        success = false;
+    }
+
+    // Update sleep timeout
+    if (!zmk_activity_set_sleep_ms(req->settings.sleep_ms)) {
+        LOG_ERR("Failed to set sleep timeout to %d ms", req->settings.sleep_ms);
+        success = false;
+    }
+
+    if (success) {
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_RELAY_EVENT)
+        // Raise event to propagate to peripherals
+        struct zmk_activity_settings_changed event = {
+            .idle_ms  = req->settings.idle_ms,
+            .sleep_ms = req->settings.sleep_ms,
+            .source   = ZMK_RELAY_EVENT_SOURCE_SELF,
+        };
+        raise_zmk_activity_settings_changed(event);
+        LOG_DBG("Activity settings updated and event raised");
+#else
+        LOG_DBG("Activity settings updated (relay not enabled)");
+#endif
+    }
+
+    zmk_settings_SetActivitySettingsResponse result =
+        zmk_settings_SetActivitySettingsResponse_init_zero;
+    result.success = success;
+
+    resp->which_response_type = zmk_settings_Response_set_activity_settings_tag;
+    resp->response_type.set_activity_settings = result;
+    return success ? 0 : -1;
+}
+
+/**
+ * Handle GetAllActivitySettings request - triggers devices to report settings
+ * This doesn't block - it just sends a request and returns immediately.
+ * Settings will be reported via notifications.
+ */
+static int handle_get_all_activity_settings(
+    const zmk_settings_GetAllActivitySettingsRequest *req,
+    zmk_settings_Response *resp) {
+    LOG_DBG("Received get all activity settings request - triggering reports");
+
+    // Send notification with central's settings immediately
+    send_activity_settings_notification(zmk_activity_get_idle_ms(),
+                                        zmk_activity_get_sleep_ms(),
+                                        0  // Central is source 0
+    );
+
+#if IS_ENABLED(CONFIG_ZMK_SPLIT) && IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+    // Request settings from peripherals
+    // Each peripheral will report via notification when it receives the request
+    struct zmk_activity_settings_request request_event = {
+        .request_id = 0,  // Not used in notification approach
+    };
+    raise_zmk_activity_settings_request(request_event);
+    LOG_DBG("Requested settings from peripherals");
+#endif
+
+    // Return success - actual settings will arrive via notifications
+    zmk_settings_GetAllActivitySettingsResponse result =
+        zmk_settings_GetAllActivitySettingsResponse_init_zero;
+    result.request_sent = true;
+
+    resp->which_response_type =
+        zmk_settings_Response_get_all_activity_settings_tag;
+    resp->response_type.get_all_activity_settings = result;
+    return 0;
+}
+
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_RELAY_EVENT)
+
+// Relay change events from central to peripherals
+ZMK_RELAY_EVENT_CENTRAL_TO_PERIPHERAL(zmk_activity_settings_changed, as,
+                                      source);
+
+// Relay request events from central to peripherals
+ZMK_RELAY_EVENT_CENTRAL_TO_PERIPHERAL(zmk_activity_settings_request, srq, );
+
+ZMK_RELAY_EVENT_HANDLE(zmk_activity_settings_report, srp, source);
+
+/**
+ * Event listener to handle settings reports from peripherals
+ * Send them as notifications to the web UI
+ */
+static int activity_settings_report_listener(const zmk_event_t *eh) {
+    struct zmk_activity_settings_report *ev =
+        as_zmk_activity_settings_report(eh);
+    if (!ev) {
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+
+    LOG_DBG("Received settings report from peripheral %d: idle=%d, sleep=%d",
+            ev->source, ev->idle_ms, ev->sleep_ms);
+
+    // Send notification to web UI
+    send_activity_settings_notification(ev->idle_ms, ev->sleep_ms, ev->source);
+
+    return ZMK_EV_EVENT_BUBBLE;
+}
+
+ZMK_LISTENER(activity_settings_report_handler,
+             activity_settings_report_listener);
+ZMK_SUBSCRIPTION(activity_settings_report_handler,
+                 zmk_activity_settings_report);
+
+#endif  // IS_ENABLED(CONFIG_ZMK_SPLIT_RELAY_EVENT)

@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package zmk.settings;
+
+// Activity settings (sleep/idle timeouts)
+message ActivitySettings {
+    // Idle timeout in milliseconds (0 to disable)
+    uint32 idle_ms = 1;
+    // Sleep timeout in milliseconds (0 to disable)
+    uint32 sleep_ms = 2;
+    // Source device identifier (0 = central, 1+ = peripheral index)
+    // Used to identify which device the settings came from in notifications
+    uint32 source = 3;
+}
+
+// Request to get activity settings
+message GetActivitySettingsRequest {
+}
+
+// Response with current activity settings
+message GetActivitySettingsResponse {
+    ActivitySettings settings = 1;
+}
+
+// Request to set activity settings
+message SetActivitySettingsRequest {
+    ActivitySettings settings = 1;
+}
+
+// Response after setting activity settings
+message SetActivitySettingsResponse {
+    bool success = 1;
+}
+
+// Request to get activity settings from all devices (central + peripherals)
+// This triggers devices to report their settings via notifications
+message GetAllActivitySettingsRequest {
+}
+
+// Response confirming the request was sent
+// Actual settings will be delivered via ActivitySettingsNotification
+message GetAllActivitySettingsResponse {
+    bool request_sent = 1;
+}
+
+// Notification message sent when a device reports its activity settings
+// This is sent from both central and peripherals in response to GetAllActivitySettingsRequest
+message ActivitySettingsNotification {
+    ActivitySettings settings = 1;
+}
+
+// Main request message - extensible for future settings
+message Request {
+    oneof request_type {
+        GetActivitySettingsRequest get_activity_settings = 1;
+        SetActivitySettingsRequest set_activity_settings = 2;
+        GetAllActivitySettingsRequest get_all_activity_settings = 3;
+    }
+}
+
+// Error response for any failed request
+message ErrorResponse {
+    string message = 1;
+}
+
+// Main response message - extensible for future settings
+message Response {
+    oneof response_type {
+        ErrorResponse error = 1;
+        GetActivitySettingsResponse get_activity_settings = 2;
+        SetActivitySettingsResponse set_activity_settings = 3;
+        GetAllActivitySettingsResponse get_all_activity_settings = 4;
+    }
+}
+
+// Notification message - sent asynchronously from firmware to web UI
+message Notification {
+    oneof notification_type {
+        ActivitySettingsNotification activity_settings = 1;
+    }
+}
