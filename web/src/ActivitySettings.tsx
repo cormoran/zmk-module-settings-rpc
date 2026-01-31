@@ -3,7 +3,7 @@
  * Allows getting and setting sleep/idle timeout settings
  */
 
-import { useContext, useState, useEffect, useMemo, useCallback } from "react";
+import { useContext, useState, useEffect, useMemo } from "react";
 import {
   ZMKCustomSubsystem,
   ZMKAppContext,
@@ -45,59 +45,57 @@ export function ActivitySettings({ autoFetch = true }: ActivitySettingsProps) {
     [zmkApp]
   );
 
-  // Handle notifications from firmware
-  const handleNotification = useCallback((notificationPayload: Uint8Array) => {
-    try {
-      const notification = Notification.decode(notificationPayload);
-      if (notification.activitySettings?.settings) {
-        const settings = notification.activitySettings.settings;
-        const deviceSetting: DeviceSettings = {
-          source: settings.source,
-          idleMs: settings.idleMs,
-          sleepMs: settings.sleepMs,
-        };
-
-        setAllDeviceSettings((prev) => {
-          // Check if we already have settings from this source
-          const filtered = prev.filter((s) => s.source !== settings.source);
-          const updated = [...filtered, deviceSetting];
-
-          // Update central's displayed values with central's settings (source 0)
-          if (settings.source === 0) {
-            setIdleMs(settings.idleMs);
-            setSleepMs(settings.sleepMs);
-          }
-
-          // Check if all devices are in sync
-          const inSync = updated.every(
-            (s) =>
-              s.idleMs === updated[0].idleMs && s.sleepMs === updated[0].sleepMs
-          );
-          setShowSyncWarning(!inSync && updated.length > 1);
-
-          return updated;
-        });
-      }
-    } catch (err) {
-      console.error("Failed to decode notification:", err);
-    }
-  }, []);
-
   // Subscribe to notifications
   useEffect(() => {
     if (!zmkApp?.state.connection || !subsystem) return;
 
     // Register notification handler
-    const unsubscribe =
-      zmkApp.state.connection.subscribeToCustomNotifications?.(
-        subsystem.index,
-        handleNotification
-      );
+    const unsubscribe = zmkApp.onNotification({
+      type: "custom",
+      subsystemIndex: subsystem.index,
+      callback: (notification) => {
+        if (!notification.payload) return;
+        try {
+          const decoded = Notification.decode(notification.payload);
+          if (decoded.activitySettings?.settings) {
+            const settings = decoded.activitySettings.settings;
+            const deviceSetting: DeviceSettings = {
+              source: settings.source,
+              idleMs: settings.idleMs,
+              sleepMs: settings.sleepMs,
+            };
 
+            setAllDeviceSettings((prev) => {
+              // Check if we already have settings from this source
+              const filtered = prev.filter((s) => s.source !== settings.source);
+              const updated = [...filtered, deviceSetting];
+
+              // Update central's displayed values with central's settings (source 0)
+              if (settings.source === 0) {
+                setIdleMs(settings.idleMs);
+                setSleepMs(settings.sleepMs);
+              }
+
+              // Check if all devices are in sync
+              const inSync = updated.every(
+                (s) =>
+                  s.idleMs === updated[0].idleMs &&
+                  s.sleepMs === updated[0].sleepMs
+              );
+              setShowSyncWarning(!inSync && updated.length > 1);
+
+              return updated;
+            });
+          }
+        } catch (err) {
+          console.error("Failed to decode notification:", err);
+        }
+      },
+    });
     return () => {
       unsubscribe?.();
     };
-  }, [zmkApp?.state.connection, subsystem, handleNotification]);
+  }, [zmkApp, zmkApp?.state.connection, subsystem]);
 
   // Get current settings when component mounts or subsystem becomes available
   useEffect(() => {
