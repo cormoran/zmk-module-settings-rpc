@@ -1,9 +1,8 @@
 /**
- * Tests for RPCTestSection component
+ * Tests for ActivitySettings component
  *
  * This test demonstrates how to use react-zmk-studio test helpers to test
- * components that interact with ZMK devices. This serves as a reference
- * implementation for template users.
+ * components that interact with ZMK devices.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -11,11 +10,11 @@ import {
   createConnectedMockZMKApp,
   ZMKAppProvider,
 } from "@cormoran/zmk-studio-react-hook/testing";
-import { RPCTestSection, SUBSYSTEM_IDENTIFIER } from "../src/App";
+import { ActivitySettings, SUBSYSTEM_IDENTIFIER } from "../src/ActivitySettings";
 
-describe("RPCTestSection Component", () => {
+describe("ActivitySettings Component", () => {
   describe("With Subsystem", () => {
-    it("should render RPC controls when subsystem is found", () => {
+    it("should render activity settings controls when subsystem is found", () => {
       // Create a connected mock ZMK app with the required subsystem
       const mockZMKApp = createConnectedMockZMKApp({
         deviceName: "Test Device",
@@ -24,31 +23,42 @@ describe("RPCTestSection Component", () => {
 
       render(
         <ZMKAppProvider value={mockZMKApp}>
-          <RPCTestSection />
+          <ActivitySettings />
         </ZMKAppProvider>
       );
 
-      // Check for RPC test UI elements
-      expect(screen.getByText(/RPC Test/i)).toBeInTheDocument();
-      expect(screen.getByText(/Send a sample request/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Value:/i)).toBeInTheDocument();
-      expect(screen.getByText(/Send Request/i)).toBeInTheDocument();
+      // Check for activity settings UI elements
+      expect(
+        screen.getByText(/Activity Settings \(Sleep\/Idle Timeout\)/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Configure how long the keyboard waits before going idle or to sleep/i
+        )
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText(/Idle Timeout \(ms\):/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Sleep Timeout \(ms\):/i)).toBeInTheDocument();
+      expect(screen.getByText(/Refresh/i)).toBeInTheDocument();
+      expect(screen.getByText(/Save Settings/i)).toBeInTheDocument();
     });
 
-    it("should show default input value", () => {
+    it("should show default input values", () => {
       const mockZMKApp = createConnectedMockZMKApp({
         subsystems: [SUBSYSTEM_IDENTIFIER],
       });
 
       render(
         <ZMKAppProvider value={mockZMKApp}>
-          <RPCTestSection />
+          <ActivitySettings />
         </ZMKAppProvider>
       );
 
-      // Check that the input has a default value
-      const input = screen.getByLabelText(/Value:/i) as HTMLInputElement;
-      expect(input.value).toBe("42");
+      // Check that the inputs have default values
+      const idleInput = screen.getByLabelText(/Idle Timeout \(ms\):/i) as HTMLInputElement;
+      expect(idleInput.value).toBe("30000"); // 30 seconds
+
+      const sleepInput = screen.getByLabelText(/Sleep Timeout \(ms\):/i) as HTMLInputElement;
+      expect(sleepInput.value).toBe("900000"); // 15 minutes
     });
   });
 
@@ -62,17 +72,17 @@ describe("RPCTestSection Component", () => {
 
       render(
         <ZMKAppProvider value={mockZMKApp}>
-          <RPCTestSection />
+          <ActivitySettings />
         </ZMKAppProvider>
       );
 
       // Check for warning message
       expect(
-        screen.getByText(/Subsystem "zmk__template" not found/i)
+        screen.getByText(/Subsystem "zmk__settings" not found/i)
       ).toBeInTheDocument();
       expect(
         screen.getByText(
-          /Make sure your firmware includes the template module/i
+          /Make sure your firmware includes the settings module/i
         )
       ).toBeInTheDocument();
     });
@@ -80,7 +90,7 @@ describe("RPCTestSection Component", () => {
 
   describe("Without ZMKAppContext", () => {
     it("should not render when ZMKAppContext is not provided", () => {
-      const { container } = render(<RPCTestSection />);
+      const { container } = render(<ActivitySettings />);
 
       // Component should return null when context is not available
       expect(container.firstChild).toBeNull();

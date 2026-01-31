@@ -26,9 +26,11 @@ describe("App Component", () => {
     it("should render the application header", () => {
       render(<App />);
 
-      // Check for the main title
-      expect(screen.getByText(/ZMK Module Template/i)).toBeInTheDocument();
-      expect(screen.getByText(/Custom Studio RPC Demo/i)).toBeInTheDocument();
+      // Check for the main title in the header
+      expect(screen.getByRole('heading', { level: 1, name: /ZMK Core Settings/i })).toBeInTheDocument();
+      expect(
+        screen.getByText(/Configure sleep, idle, and other ZMK settings/i)
+      ).toBeInTheDocument();
     });
 
     it("should render connection button when disconnected", () => {
@@ -42,7 +44,9 @@ describe("App Component", () => {
       render(<App />);
 
       // Check for footer text
-      expect(screen.getByText(/Template Module/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/ZMK Core Settings Module/i)
+      ).toBeInTheDocument();
     });
   });
 
@@ -57,7 +61,7 @@ describe("App Component", () => {
       // Set up successful connection mock
       mocks.mockSuccessfulConnection({
         deviceName: "Test Keyboard",
-        subsystems: ["zmk__template"],
+        subsystems: ["zmk__settings"],
       });
 
       // Mock the serial connect function to return our mock transport
@@ -86,8 +90,10 @@ describe("App Component", () => {
       // Verify disconnect button is now available
       expect(screen.getByText(/Disconnect/i)).toBeInTheDocument();
 
-      // Verify RPC test section is visible
-      expect(screen.getByText(/RPC Test/i)).toBeInTheDocument();
+      // Verify Activity Settings section is visible
+      expect(
+        screen.getByText(/Activity Settings \(Sleep\/Idle Timeout\)/i)
+      ).toBeInTheDocument();
     });
   });
 });
