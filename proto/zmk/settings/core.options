@@ -1,5 +1,4 @@
 # Nanopb options file for core.proto
-# This defines max sizes for string fields and repeated fields
+# This defines max sizes for string fields
 
 zmk.settings.ErrorResponse.message                             max_size:64
-zmk.settings.GetAllActivitySettingsResponse.all_settings       max_count:9

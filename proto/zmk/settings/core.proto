@@ -33,15 +33,20 @@ message SetActivitySettingsResponse {
 }
 
 // Request to get activity settings from all devices (central + peripherals)
+// This triggers devices to report their settings via notifications
 message GetAllActivitySettingsRequest {
 }
 
-// Response with activity settings from all devices
+// Response confirming the request was sent
+// Actual settings will be delivered via ActivitySettingsNotification
 message GetAllActivitySettingsResponse {
-    // Settings from central and all connected peripherals
-    repeated ActivitySettings all_settings = 1;
-    // True if all devices have the same settings, false if there's a mismatch
-    bool in_sync = 2;
+    bool request_sent = 1;
+}
+
+// Notification message sent when a device reports its activity settings
+// This is sent from both central and peripherals in response to GetAllActivitySettingsRequest
+message ActivitySettingsNotification {
+    ActivitySettings settings = 1;
 }
 
 // Main request message - extensible for future settings
@@ -65,5 +70,12 @@ message Response {
         GetActivitySettingsResponse get_activity_settings = 2;
         SetActivitySettingsResponse set_activity_settings = 3;
         GetAllActivitySettingsResponse get_all_activity_settings = 4;
+    }
+}
+
+// Notification message - sent asynchronously from firmware to web UI
+message Notification {
+    oneof notification_type {
+        ActivitySettingsNotification activity_settings = 1;
     }
 }
