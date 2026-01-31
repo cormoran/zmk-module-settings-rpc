@@ -10,7 +10,10 @@ import {
   createConnectedMockZMKApp,
   ZMKAppProvider,
 } from "@cormoran/zmk-studio-react-hook/testing";
-import { ActivitySettings, SUBSYSTEM_IDENTIFIER } from "../src/ActivitySettings";
+import {
+  ActivitySettings,
+  SUBSYSTEM_IDENTIFIER,
+} from "../src/ActivitySettings";
 
 describe("ActivitySettings Component", () => {
   describe("With Subsystem", () => {
@@ -36,8 +39,12 @@ describe("ActivitySettings Component", () => {
           /Configure how long the keyboard waits before going idle or to sleep/i
         )
       ).toBeInTheDocument();
-      expect(screen.getByLabelText(/Idle Timeout \(ms\):/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Sleep Timeout \(ms\):/i)).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(/Idle Timeout \(ms\):/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(/Sleep Timeout \(ms\):/i)
+      ).toBeInTheDocument();
       expect(screen.getByText(/Refresh/i)).toBeInTheDocument();
       expect(screen.getByText(/Save Settings/i)).toBeInTheDocument();
     });
@@ -54,10 +61,14 @@ describe("ActivitySettings Component", () => {
       );
 
       // Check that the inputs have default values
-      const idleInput = screen.getByLabelText(/Idle Timeout \(ms\):/i) as HTMLInputElement;
+      const idleInput = screen.getByLabelText(
+        /Idle Timeout \(ms\):/i
+      ) as HTMLInputElement;
       expect(idleInput.value).toBe("30000"); // 30 seconds
 
-      const sleepInput = screen.getByLabelText(/Sleep Timeout \(ms\):/i) as HTMLInputElement;
+      const sleepInput = screen.getByLabelText(
+        /Sleep Timeout \(ms\):/i
+      ) as HTMLInputElement;
       expect(sleepInput.value).toBe("900000"); // 15 minutes
     });
   });

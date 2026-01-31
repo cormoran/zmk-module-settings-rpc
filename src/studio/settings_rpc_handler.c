@@ -12,10 +12,29 @@
 #include <zmk/settings/core.pb.h>
 #include <zmk/activity.h>
 #include <zmk/events/activity_settings_changed.h>
+#include <zmk/events/activity_settings_report.h>
 #include <zmk/event_manager.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
+
+#if IS_ENABLED(CONFIG_ZMK_SPLIT)
+#include <zephyr/kernel.h>
+
+// Storage for collecting settings from peripherals
+#define MAX_PERIPHERALS 8
+static struct {
+    zmk_settings_ActivitySettings settings[MAX_PERIPHERALS + 1]; // +1 for central
+    uint8_t count;
+    uint8_t request_id;
+    struct k_sem sem;
+} settings_collection = {
+    .count = 0,
+    .request_id = 0,
+};
+
+K_SEM_DEFINE(settings_collection_sem, 0, 1);
+#endif
 
 /**
  * Metadata for the custom subsystem.
@@ -41,6 +60,8 @@ static int handle_get_activity_settings(const zmk_settings_GetActivitySettingsRe
                                         zmk_settings_Response *resp);
 static int handle_set_activity_settings(const zmk_settings_SetActivitySettingsRequest *req,
                                         zmk_settings_Response *resp);
+static int handle_get_all_activity_settings(const zmk_settings_GetAllActivitySettingsRequest *req,
+                                            zmk_settings_Response *resp);
 
 /**
  * Main request handler for the settings RPC subsystem.
@@ -72,6 +93,9 @@ static bool settings_rpc_handle_request(const zmk_custom_CallRequest *raw_reques
         break;
     case zmk_settings_Request_set_activity_settings_tag:
         rc = handle_set_activity_settings(&req.request_type.set_activity_settings, resp);
+        break;
+    case zmk_settings_Request_get_all_activity_settings_tag:
+        rc = handle_get_all_activity_settings(&req.request_type.get_all_activity_settings, resp);
         break;
     default:
         LOG_WRN("Unsupported settings request type: %d", req.which_request_type);
@@ -156,13 +180,84 @@ static int handle_set_activity_settings(const zmk_settings_SetActivitySettingsRe
     return success ? 0 : -1;
 }
 
+/**
+ * Handle GetAllActivitySettings request - collects settings from all devices
+ * This is useful to detect if central and peripherals have different settings
+ */
+static int handle_get_all_activity_settings(const zmk_settings_GetAllActivitySettingsRequest *req,
+                                            zmk_settings_Response *resp) {
+    LOG_DBG("Received get all activity settings request");
+
+    zmk_settings_GetAllActivitySettingsResponse result =
+        zmk_settings_GetAllActivitySettingsResponse_init_zero;
+
+#if IS_ENABLED(CONFIG_ZMK_SPLIT) && IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+    // Reset collection
+    settings_collection.count = 0;
+    settings_collection.request_id++;
+
+    // Add central's settings
+    result.all_settings[0].idle_ms = zmk_activity_get_idle_ms();
+    result.all_settings[0].sleep_ms = zmk_activity_get_sleep_ms();
+    result.all_settings[0].source = 0; // Central
+    result.all_settings_count = 1;
+
+    // Request settings from peripherals
+    struct zmk_activity_settings_request request_event = {
+        .request_id = settings_collection.request_id,
+    };
+    raise_zmk_activity_settings_request(request_event);
+
+    // Wait for responses from peripherals (with timeout)
+    // Note: In a real implementation, we'd need to know how many peripherals are connected
+    // and wait for all of them. For simplicity, we'll use a short timeout and collect
+    // whatever responses we get.
+    k_sleep(K_MSEC(100));
+
+    // Copy collected peripheral settings
+    for (int i = 0; i < settings_collection.count && i < MAX_PERIPHERALS; i++) {
+        result.all_settings[result.all_settings_count++] = settings_collection.settings[i];
+    }
+
+    // Check if all settings are in sync
+    result.in_sync = true;
+    if (result.all_settings_count > 1) {
+        uint32_t ref_idle = result.all_settings[0].idle_ms;
+        uint32_t ref_sleep = result.all_settings[0].sleep_ms;
+        for (int i = 1; i < result.all_settings_count; i++) {
+            if (result.all_settings[i].idle_ms != ref_idle ||
+                result.all_settings[i].sleep_ms != ref_sleep) {
+                result.in_sync = false;
+                LOG_WRN("Settings mismatch detected: device %d has idle=%d, sleep=%d",
+                       result.all_settings[i].source,
+                       result.all_settings[i].idle_ms,
+                       result.all_settings[i].sleep_ms);
+                break;
+            }
+        }
+    }
+#else
+    // No split support or peripheral role - just return central settings
+    result.all_settings[0].idle_ms = zmk_activity_get_idle_ms();
+    result.all_settings[0].sleep_ms = zmk_activity_get_sleep_ms();
+    result.all_settings[0].source = 0;
+    result.all_settings_count = 1;
+    result.in_sync = true;
+#endif
+
+    LOG_DBG("Collected settings from %d device(s), in_sync=%d",
+            result.all_settings_count, result.in_sync);
+
+    resp->which_response_type = zmk_settings_Response_get_all_activity_settings_tag;
+    resp->response_type.get_all_activity_settings = result;
+    return 0;
+}
+
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_RELAY_EVENT)
 
 // Event relay: central to peripheral
+// When settings are changed via RPC on central, propagate to peripherals
 ZMK_RELAY_EVENT_CENTRAL_TO_PERIPHERAL(zmk_activity_settings_changed, activity_settings, source);
-
-// Event relay: peripheral to central
-ZMK_RELAY_EVENT_PERIPHERAL_TO_CENTRAL(zmk_activity_settings_changed, activity_settings, source);
 
 // Handle relayed events to apply settings
 ZMK_RELAY_EVENT_HANDLE(zmk_activity_settings_changed, activity_settings, source);
@@ -192,3 +287,80 @@ ZMK_LISTENER(activity_settings_apply, activity_settings_changed_listener);
 ZMK_SUBSCRIPTION(activity_settings_apply, zmk_activity_settings_changed);
 
 #endif // IS_ENABLED(CONFIG_ZMK_SPLIT_RELAY_EVENT)
+
+#if IS_ENABLED(CONFIG_ZMK_SPLIT)
+
+// Event relay: settings request from central to peripheral
+ZMK_RELAY_EVENT_CENTRAL_TO_PERIPHERAL(zmk_activity_settings_request, settings_request, );
+
+// Event relay: settings report from peripheral to central
+ZMK_RELAY_EVENT_PERIPHERAL_TO_CENTRAL(zmk_activity_settings_report, settings_report, source);
+
+// Handle settings request events (called on peripherals)
+ZMK_RELAY_EVENT_HANDLE(zmk_activity_settings_request, settings_request, );
+
+// Handle settings report events (called on central)
+ZMK_RELAY_EVENT_HANDLE(zmk_activity_settings_report, settings_report, source);
+
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+/**
+ * Event listener to collect settings reports from peripherals
+ */
+static int activity_settings_report_listener(const zmk_event_t *eh) {
+    struct zmk_activity_settings_report *ev = as_zmk_activity_settings_report(eh);
+    if (!ev) {
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+
+    // Only process reports for our current request
+    if (ev->request_id != settings_collection.request_id) {
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+
+    // Store the settings
+    if (settings_collection.count < MAX_PERIPHERALS) {
+        settings_collection.settings[settings_collection.count].idle_ms = ev->idle_ms;
+        settings_collection.settings[settings_collection.count].sleep_ms = ev->sleep_ms;
+        settings_collection.settings[settings_collection.count].source = ev->source;
+        settings_collection.count++;
+        LOG_DBG("Collected settings from peripheral %d: idle=%d, sleep=%d",
+               ev->source, ev->idle_ms, ev->sleep_ms);
+    }
+
+    return ZMK_EV_EVENT_BUBBLE;
+}
+
+ZMK_LISTENER(activity_settings_report_handler, activity_settings_report_listener);
+ZMK_SUBSCRIPTION(activity_settings_report_handler, zmk_activity_settings_report);
+#endif // IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+
+#if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+/**
+ * Event listener to respond to settings requests (on peripherals)
+ */
+static int activity_settings_request_listener(const zmk_event_t *eh) {
+    struct zmk_activity_settings_request *ev = as_zmk_activity_settings_request(eh);
+    if (!ev) {
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+
+    // Get current settings and report back
+    struct zmk_activity_settings_report report = {
+        .idle_ms = zmk_activity_get_idle_ms(),
+        .sleep_ms = zmk_activity_get_sleep_ms(),
+        .source = ZMK_RELAY_EVENT_SOURCE_SELF,  // Will be updated by relay with actual source
+        .request_id = ev->request_id,
+    };
+
+    raise_zmk_activity_settings_report(report);
+    LOG_DBG("Reported settings: idle=%d, sleep=%d for request %d",
+           report.idle_ms, report.sleep_ms, ev->request_id);
+
+    return ZMK_EV_EVENT_BUBBLE;
+}
+
+ZMK_LISTENER(activity_settings_request_handler, activity_settings_request_listener);
+ZMK_SUBSCRIPTION(activity_settings_request_handler, zmk_activity_settings_request);
+#endif // !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+
+#endif // IS_ENABLED(CONFIG_ZMK_SPLIT)

@@ -27,7 +27,9 @@ describe("App Component", () => {
       render(<App />);
 
       // Check for the main title in the header
-      expect(screen.getByRole('heading', { level: 1, name: /ZMK Core Settings/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { level: 1, name: /ZMK Core Settings/i })
+      ).toBeInTheDocument();
       expect(
         screen.getByText(/Configure sleep, idle, and other ZMK settings/i)
       ).toBeInTheDocument();
@@ -44,9 +46,7 @@ describe("App Component", () => {
       render(<App />);
 
       // Check for footer text
-      expect(
-        screen.getByText(/ZMK Core Settings Module/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/ZMK Core Settings Module/i)).toBeInTheDocument();
     });
   });
 

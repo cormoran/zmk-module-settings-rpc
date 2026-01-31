@@ -29,16 +29,17 @@ export function ActivitySettings({ autoFetch = true }: ActivitySettingsProps) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  if (!zmkApp) return null;
-
-  const subsystem = zmkApp.findSubsystem(SUBSYSTEM_IDENTIFIER);
+  const subsystem = zmkApp?.findSubsystem(SUBSYSTEM_IDENTIFIER);
 
   // Get current settings when component mounts or subsystem becomes available
   useEffect(() => {
-    if (subsystem && zmkApp.state.connection && autoFetch) {
+    if (subsystem && zmkApp?.state.connection && autoFetch) {
       getCurrentSettings();
     }
-  }, [subsystem, zmkApp.state.connection, autoFetch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subsystem, zmkApp?.state.connection, autoFetch]);
+
+  if (!zmkApp) return null;
 
   const getCurrentSettings = async () => {
     if (!zmkApp.state.connection || !subsystem) return;
@@ -148,7 +149,9 @@ export function ActivitySettings({ autoFetch = true }: ActivitySettingsProps) {
   return (
     <section className="card">
       <h2>⏱️ Activity Settings (Sleep/Idle Timeout)</h2>
-      <p>Configure how long the keyboard waits before going idle or to sleep.</p>
+      <p>
+        Configure how long the keyboard waits before going idle or to sleep.
+      </p>
 
       <div className="settings-grid">
         <div className="input-group">

@@ -5,6 +5,7 @@ zephyr_include_directories(include)
 if(CONFIG_ZMK_SETTINGS_RPC)
     # Add event source files
     target_sources(app PRIVATE src/events/activity_settings_changed.c)
+    target_sources(app PRIVATE src/events/activity_settings_report.c)
 
     if(CONFIG_ZMK_SETTINGS_RPC_STUDIO)
         file(GLOB_RECURSE C_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/studio/*.c)
