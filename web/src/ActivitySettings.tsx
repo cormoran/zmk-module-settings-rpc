@@ -87,48 +87,15 @@ export function ActivitySettings({ autoFetch = true }: ActivitySettingsProps) {
   useEffect(() => {
     if (!zmkApp?.state.connection || !subsystem) return;
 
-    const reader = zmkApp.state.connection.notification_readable.getReader();
-    let cancelled = false;
-
-    (async () => {
-      try {
-        while (!cancelled) {
-          const { done, value } = await reader.read();
-          if (done || cancelled) break;
-
-          // Check if this is a custom notification for our subsystem
-          if (
-            value.custom?.customNotification &&
-            value.custom.customNotification.subsystemIndex === subsystem.index
-          ) {
-            const payload = value.custom.customNotification.payload;
-            if (payload) {
-              handleNotification(payload);
-            }
-          }
-        }
-      } catch (error) {
-        if (!cancelled) {
-          console.error("Error reading notifications:", error);
-        }
-      } finally {
-        try {
-          reader.releaseLock();
-        } catch (e) {
-          // Ignore errors when releasing lock
-        }
-      }
-    })();
+    // Register notification handler
+    const unsubscribe =
+      zmkApp.state.connection.subscribeToCustomNotifications?.(
+        subsystem.index,
+        handleNotification
+      );
 
     return () => {
-      cancelled = true;
-      try {
-        reader.cancel().catch(() => {
-          // Ignore cancellation errors
-        });
-      } catch (e) {
-        // Ignore errors
-      }
+      unsubscribe?.();
     };
   }, [zmkApp?.state.connection, subsystem, handleNotification]);
 
