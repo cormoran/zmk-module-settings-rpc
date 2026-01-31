@@ -1,0 +1,10 @@
+file_format: "1"
+id: split_xiao
+name: Split XIAO
+type: shield
+requires: [seeed_xiao]
+features:
+  - keys
+siblings:
+  - split_xiao_left
+  - split_xiao_right
