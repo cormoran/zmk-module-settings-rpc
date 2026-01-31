@@ -23,7 +23,7 @@ describe("ActivitySettings Component", () => {
 
       render(
         <ZMKAppProvider value={mockZMKApp}>
-          <ActivitySettings />
+          <ActivitySettings autoFetch={false} />
         </ZMKAppProvider>
       );
 
@@ -49,7 +49,7 @@ describe("ActivitySettings Component", () => {
 
       render(
         <ZMKAppProvider value={mockZMKApp}>
-          <ActivitySettings />
+          <ActivitySettings autoFetch={false} />
         </ZMKAppProvider>
       );
 
@@ -72,7 +72,7 @@ describe("ActivitySettings Component", () => {
 
       render(
         <ZMKAppProvider value={mockZMKApp}>
-          <ActivitySettings />
+          <ActivitySettings autoFetch={false} />
         </ZMKAppProvider>
       );
 
@@ -90,7 +90,7 @@ describe("ActivitySettings Component", () => {
 
   describe("Without ZMKAppContext", () => {
     it("should not render when ZMKAppContext is not provided", () => {
-      const { container } = render(<ActivitySettings />);
+      const { container } = render(<ActivitySettings autoFetch={false} />);
 
       // Component should return null when context is not available
       expect(container.firstChild).toBeNull();

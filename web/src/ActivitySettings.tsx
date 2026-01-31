@@ -13,7 +13,15 @@ import { Request, Response } from "./proto/zmk/settings/core";
 // Custom subsystem identifier - must match firmware registration
 export const SUBSYSTEM_IDENTIFIER = "zmk__settings";
 
-export function ActivitySettings() {
+export interface ActivitySettingsProps {
+  /**
+   * Whether to automatically fetch settings on mount.
+   * Defaults to true. Set to false in tests to avoid automatic RPC calls.
+   */
+  autoFetch?: boolean;
+}
+
+export function ActivitySettings({ autoFetch = true }: ActivitySettingsProps) {
   const zmkApp = useContext(ZMKAppContext);
   const [idleMs, setIdleMs] = useState<number>(30000); // 30 seconds default
   const [sleepMs, setSleepMs] = useState<number>(900000); // 15 minutes default
@@ -27,13 +35,10 @@ export function ActivitySettings() {
 
   // Get current settings when component mounts or subsystem becomes available
   useEffect(() => {
-    if (subsystem && zmkApp.state.connection) {
-      // Only auto-fetch if not in test environment or if getCurrentSettings is defined
-      if (typeof jest === 'undefined') {
-        getCurrentSettings();
-      }
+    if (subsystem && zmkApp.state.connection && autoFetch) {
+      getCurrentSettings();
     }
-  }, [subsystem, zmkApp.state.connection]);
+  }, [subsystem, zmkApp.state.connection, autoFetch]);
 
   const getCurrentSettings = async () => {
     if (!zmkApp.state.connection || !subsystem) return;
