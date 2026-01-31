@@ -1,10 +1,28 @@
-config ZMK_TEMPLATE_FEATURE
-    bool "Enable template feature"
+config ZMK_SETTINGS_RPC
+    bool "Enable ZMK core settings RPC module"
 
-if ZMK_TEMPLATE_FEATURE
+if ZMK_SETTINGS_RPC
 
-config ZMK_TEMPLATE_FEATURE_STUDIO_RPC
-    bool "Enable template feature custom Studio RPC"
+config ZMK_SETTINGS_RPC_STUDIO
+    bool "Enable ZMK core settings custom Studio RPC"
     depends on ZMK_STUDIO
+
+config ZMK_SPLIT_RELAY_EVENT
+    bool "Enable event relay between central and peripheral for split keyboards"
+    default y
+    depends on ZMK_SPLIT
+    help
+      Enable relaying events between central and peripheral halves for split keyboards.
+      This is required for propagating settings changes to peripheral keyboards.
+
+config ZMK_SPLIT_RELAY_EVENT_TYPE_NAME_LEN
+    int "Maximum length of relay event type name"
+    default 32
+    depends on ZMK_SPLIT_RELAY_EVENT
+
+config ZMK_SPLIT_RELAY_EVENT_DATA_LEN
+    int "Maximum length of relay event data"
+    default 64
+    depends on ZMK_SPLIT_RELAY_EVENT
 
 endif

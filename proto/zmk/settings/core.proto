@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package zmk.settings;
+
+// Activity settings (sleep/idle timeouts)
+message ActivitySettings {
+    // Idle timeout in milliseconds (0 to disable)
+    uint32 idle_ms = 1;
+    // Sleep timeout in milliseconds (0 to disable)
+    uint32 sleep_ms = 2;
+}
+
+// Request to get activity settings
+message GetActivitySettingsRequest {
+}
+
+// Response with current activity settings
+message GetActivitySettingsResponse {
+    ActivitySettings settings = 1;
+}
+
+// Request to set activity settings
+message SetActivitySettingsRequest {
+    ActivitySettings settings = 1;
+}
+
+// Response after setting activity settings
+message SetActivitySettingsResponse {
+    bool success = 1;
+}
+
+// Main request message - extensible for future settings
+message Request {
+    oneof request_type {
+        GetActivitySettingsRequest get_activity_settings = 1;
+        SetActivitySettingsRequest set_activity_settings = 2;
+    }
+}
+
+// Error response for any failed request
+message ErrorResponse {
+    string message = 1;
+}
+
+// Main response message - extensible for future settings
+message Response {
+    oneof response_type {
+        ErrorResponse error = 1;
+        GetActivitySettingsResponse get_activity_settings = 2;
+        SetActivitySettingsResponse set_activity_settings = 3;
+    }
+}
