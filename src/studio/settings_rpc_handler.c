@@ -291,61 +291,15 @@ static int handle_get_all_activity_settings(
 
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_RELAY_EVENT)
 
-// Event relay: central to peripheral
-// When settings are changed via RPC on central, propagate to peripherals
-ZMK_RELAY_EVENT_CENTRAL_TO_PERIPHERAL(zmk_activity_settings_changed,
-                                      activity_settings, source);
+// Relay change events from central to peripherals
+ZMK_RELAY_EVENT_CENTRAL_TO_PERIPHERAL(zmk_activity_settings_changed, as,
+                                      source);
 
-// Handle relayed events to apply settings
-ZMK_RELAY_EVENT_HANDLE(zmk_activity_settings_changed, activity_settings,
-                       source);
+// Relay request events from central to peripherals
+ZMK_RELAY_EVENT_CENTRAL_TO_PERIPHERAL(zmk_activity_settings_request, srq, );
 
-/**
- * Event listener to apply activity settings when relay event is received
- */
-static int activity_settings_changed_listener(const zmk_event_t *eh) {
-    struct zmk_activity_settings_changed *ev =
-        as_zmk_activity_settings_changed(eh);
-    if (!ev) {
-        return ZMK_EV_EVENT_BUBBLE;
-    }
+ZMK_RELAY_EVENT_HANDLE(zmk_activity_settings_report, srp, source);
 
-    // Only apply settings from relayed events (not self-originated)
-    if (ev->source != ZMK_RELAY_EVENT_SOURCE_SELF) {
-        LOG_DBG(
-            "Applying relayed activity settings: idle=%d ms, sleep=%d ms from "
-            "source %d",
-            ev->idle_ms, ev->sleep_ms, ev->source);
-
-        zmk_activity_set_idle_ms(ev->idle_ms);
-        zmk_activity_set_sleep_ms(ev->sleep_ms);
-    }
-
-    return ZMK_EV_EVENT_BUBBLE;
-}
-
-ZMK_LISTENER(activity_settings_apply, activity_settings_changed_listener);
-ZMK_SUBSCRIPTION(activity_settings_apply, zmk_activity_settings_changed);
-
-#endif  // IS_ENABLED(CONFIG_ZMK_SPLIT_RELAY_EVENT)
-
-#if IS_ENABLED(CONFIG_ZMK_SPLIT)
-
-// Event relay: settings request from central to peripheral
-ZMK_RELAY_EVENT_CENTRAL_TO_PERIPHERAL(zmk_activity_settings_request,
-                                      settings_request, );
-
-// Event relay: settings report from peripheral to central
-ZMK_RELAY_EVENT_PERIPHERAL_TO_CENTRAL(zmk_activity_settings_report,
-                                      settings_report, source);
-
-// Handle settings request events (called on peripherals)
-ZMK_RELAY_EVENT_HANDLE(zmk_activity_settings_request, settings_request, );
-
-// Handle settings report events (called on central)
-ZMK_RELAY_EVENT_HANDLE(zmk_activity_settings_report, settings_report, source);
-
-#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 /**
  * Event listener to handle settings reports from peripherals
  * Send them as notifications to the web UI
@@ -370,39 +324,5 @@ ZMK_LISTENER(activity_settings_report_handler,
              activity_settings_report_listener);
 ZMK_SUBSCRIPTION(activity_settings_report_handler,
                  zmk_activity_settings_report);
-#endif  // IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 
-#if !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-/**
- * Event listener to respond to settings requests (on peripherals)
- */
-static int activity_settings_request_listener(const zmk_event_t *eh) {
-    struct zmk_activity_settings_request *ev =
-        as_zmk_activity_settings_request(eh);
-    if (!ev) {
-        return ZMK_EV_EVENT_BUBBLE;
-    }
-
-    // Get current settings and report back
-    struct zmk_activity_settings_report report = {
-        .idle_ms  = zmk_activity_get_idle_ms(),
-        .sleep_ms = zmk_activity_get_sleep_ms(),
-        .source = ZMK_RELAY_EVENT_SOURCE_SELF,  // Will be updated by relay with
-                                                // actual source
-        .request_id = ev->request_id,
-    };
-
-    raise_zmk_activity_settings_report(report);
-    LOG_DBG("Reported settings: idle=%d, sleep=%d for request %d",
-            report.idle_ms, report.sleep_ms, ev->request_id);
-
-    return ZMK_EV_EVENT_BUBBLE;
-}
-
-ZMK_LISTENER(activity_settings_request_handler,
-             activity_settings_request_listener);
-ZMK_SUBSCRIPTION(activity_settings_request_handler,
-                 zmk_activity_settings_request);
-#endif  // !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-
-#endif  // IS_ENABLED(CONFIG_ZMK_SPLIT)
+#endif  // IS_ENABLED(CONFIG_ZMK_SPLIT_RELAY_EVENT)
