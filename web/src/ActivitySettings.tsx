@@ -29,8 +29,8 @@ export interface ActivitySettingsProps {
 
 export function ActivitySettings({ autoFetch = true }: ActivitySettingsProps) {
   const zmkApp = useContext(ZMKAppContext);
-  const [idleMs, setIdleMs] = useState<number>(30000); // 30 seconds default
-  const [sleepMs, setSleepMs] = useState<number>(900000); // 15 minutes default
+  const [idleMs, setIdleMs] = useState<number>(0);
+  const [sleepMs, setSleepMs] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,13 +42,13 @@ export function ActivitySettings({ autoFetch = true }: ActivitySettingsProps) {
   // Memoize subsystem to prevent re-rendering on every render
   const subsystem = useMemo(
     () => zmkApp?.findSubsystem(SUBSYSTEM_IDENTIFIER),
-    [zmkApp]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [zmkApp?.state.customSubsystems]
   );
 
   // Subscribe to notifications
   useEffect(() => {
     if (!zmkApp?.state.connection || !subsystem) return;
-
     // Register notification handler
     const unsubscribe = zmkApp.onNotification({
       type: "custom",
