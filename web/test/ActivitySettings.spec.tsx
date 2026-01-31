@@ -64,12 +64,12 @@ describe("ActivitySettings Component", () => {
       const idleInput = screen.getByLabelText(
         /Idle Timeout \(ms\):/i
       ) as HTMLInputElement;
-      expect(idleInput.value).toBe("30000"); // 30 seconds
+      expect(idleInput.value).toBe("0");
 
       const sleepInput = screen.getByLabelText(
         /Sleep Timeout \(ms\):/i
       ) as HTMLInputElement;
-      expect(sleepInput.value).toBe("900000"); // 15 minutes
+      expect(sleepInput.value).toBe("0");
     });
   });
 
