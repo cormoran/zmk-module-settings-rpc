@@ -133,6 +133,7 @@ static int handle_set_activity_settings(const zmk_settings_SetActivitySettingsRe
     }
 
     if (success) {
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_RELAY_EVENT)
         // Raise event to propagate to peripherals
         struct zmk_activity_settings_changed event = {
             .idle_ms = req->settings.idle_ms,
@@ -141,6 +142,9 @@ static int handle_set_activity_settings(const zmk_settings_SetActivitySettingsRe
         };
         raise_zmk_activity_settings_changed(event);
         LOG_DBG("Activity settings updated and event raised");
+#else
+        LOG_DBG("Activity settings updated (relay not enabled)");
+#endif
     }
 
     zmk_settings_SetActivitySettingsResponse result =
