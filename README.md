@@ -1,77 +1,92 @@
-# ZMK Module Template with Custom Web UI
+# ZMK Module: Settings RPC with Custom Web UI
 
-This repository contains a template for a ZMK module with Web UI by using
-**unofficial** custom studio rpc protocol.
+This repository contains a ZMK module for managing keyboard settings via a web interface using an **unofficial** custom Studio RPC protocol. It provides remote control of activity settings (sleep/idle timeouts) for both standalone and split keyboards.
 
-Basic usage is the same to official template. Read through the
+Basic usage is similar to the official template. Read through the
 [ZMK Module Creation](https://zmk.dev/docs/development/module-creation) page for
-details on how to configure this template.
+details on how to configure ZMK modules.
 
-### Supporting custom studio RPC protocol
+## Features
 
-This template contains sample implementation. Please edit and rename below files
-to implement your protocol.
+- **Activity Settings Management**: Control sleep and idle timeouts via web interface
+- **Split Keyboard Support**: Synchronized settings across central and peripheral halves
+- **Custom Studio RPC Protocol**: Protobuf-based communication for settings management
+- **React Web UI**: Modern web interface for device configuration
+- **Real-time Notifications**: Receive settings updates from all connected devices
 
-- proto `proto/zmk/template/custom.proto` and `custom.options`
-- handler `src/studio/custom_handler.c`
-- flags in `Kconfig`
-- test `./tests/studio`
+### Core Implementation
 
-### Implementing Web UI for the custom protocol
+This module includes the following components:
 
-`./web` contains boilerplate based on
+- Core settings protocol: `proto/zmk/settings/core.proto` and `core.options`
+- Settings RPC handler: `src/studio/settings_handler.c`
+- Event relay system: `src/events/` (for split keyboard synchronization)
+- Configuration flags in `Kconfig`
+- Test suite: `./tests/studio`
+
+### Extending with Custom Protocols
+
+The module also includes a template for adding your own custom RPC protocols:
+
+- Custom protocol template: `proto/zmk/template/custom.proto` and `custom.options`
+- Custom handler: `src/studio/custom_handler.c`
+
+### Web UI for Custom Protocols
+
+The `./web` directory contains a React-based web interface based on the
 [vite template `react-ts`](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts)
-(`npm create vite@latest web -- --template react-ts`) and react hook library
+(generated via `npm create vite@latest web -- --template react-ts`) and the React hook library
 [@cormoran/react-zmk-studio](https://github.com/cormoran/react-zmk-studio).
 
-Please refer
+For more details, refer to the
 [react-zmk-studio README](https://github.com/cormoran/react-zmk-studio/blob/main/README.md).
 
-## Setup (Please edit!)
+## Setup
 
-You can use this zmk-module with below setup.
+You can use this ZMK module with the following setup:
 
-1. Add dependency to your `config/west.yml`.
+1. Add this module as a dependency to your `config/west.yml`.
 
-   ```yaml:config/west.yml
-   # Please update with your account and repository name after create repository from template
+   ```yaml
+   # config/west.yml
    manifest:
-   remotes:
+     remotes:
        ...
        - name: cormoran
-       url-base: https://github.com/cormoran
-   projects:
+         url-base: https://github.com/cormoran
+     projects:
        ...
-       - name: zmk-module-template-with-custom-studio-rpc
-       remote: cormoran
-       revision: main # or latest commit hash
-       # import: true # if this module has other dependencies
+       - name: zmk-module-settings-rpc
+         remote: cormoran
+         revision: main # or specific commit hash
        ...
-       # Below setting required to use unofficial studio custom PRC feature
+       # The below settings are required to use the unofficial Studio custom RPC feature
        - name: zmk
-       remote: cormoran
-       revision: v0.3+custom-studio-protocol
-       import:
+         remote: cormoran
+         revision: v0.3+custom-studio-protocol
+         import:
            file: app/west.yml
    ```
 
-1. Enable flag in your `config/<shield>.conf`
+2. Enable the feature flags in your `config/<shield>.conf`:
 
-   ```conf:<shield>.conf
-   # Enable standalone features
-   CONFIG_ZMK_TEMPLATE_FEATURE=y
-
-   # Optionally enable studio custom RPC features
+   ```conf
+   # Enable ZMK Studio
    CONFIG_ZMK_STUDIO=y
-   CONFIG_ZMK_TEMPLATE_FEATURE_STUDIO_RPC=y
+
+   # Enable settings RPC module
+   CONFIG_ZMK_SETTINGS_RPC=y
+   CONFIG_ZMK_SETTINGS_RPC_STUDIO=y
    ```
 
-1. Update your `<keyboard>.keymap` like .....
+3. (Optional) Configure activity settings in your `<keyboard>.keymap` if you want default values:
 
-   ```
+   ```dts
    / {
-       ...
-   }
+       behaviors {
+           // Your keymap behaviors
+       };
+   };
    ```
 
 ## Development Guide
@@ -80,15 +95,15 @@ You can use this zmk-module with below setup.
 
 There are two west workspace layout options.
 
-#### Option1: Download dependencies in parent directory
+#### Option 1: Download Dependencies in Parent Directory
 
-This option is west's standard way. Choose this option if you want to re-use dependent projects in other zephyr module development.
+This is West's standard approach. Choose this option if you want to reuse dependent projects in other Zephyr module development.
 
 ```bash
 mkdir west-workspace
-cd west-workspace # this directory becomes west workspace root (topdir)
+cd west-workspace # This directory becomes the West workspace root (topdir)
 git clone <this repository>
-# rm -r .west # if exists to reset workspace
+# rm -r .west # If it exists, remove to reset workspace
 west init -l . --mf tests/west-test.yml
 west update --narrow
 west zephyr-export
@@ -111,16 +126,16 @@ west-workspace
 
 You can switch between modules by removing `west-workspace/.west` and re-executing `west init ...`.
 
-#### Option2: Download dependencies in ./dependencies (Enabled in dev-container)
+#### Option 2: Download Dependencies in ./dependencies (Enabled in Dev Container)
 
-Choose this option if you want to download dependencies under this directory (like node_modules in npm). This option is useful for specifying cache target in CI. The layout is relatively easy to recognize if you want to isolate dependencies.
+Choose this option if you want to download dependencies under this directory (similar to `node_modules` in npm). This option is useful for specifying cache targets in CI. The layout is easier to manage if you want to isolate dependencies.
 
 ```bash
 git clone <this repository>
 cd <cloned directory>
 west init -l west --mf west-test-standalone.yml
-# If you use dev container, start from below commands. Above commands are executed
-# automatically.
+# If you use the dev container, start from the commands below.
+# The above commands are executed automatically.
 west update --narrow
 west zephyr-export
 ```
@@ -137,44 +152,44 @@ The directory structure becomes like below:
     - ...
 ```
 
-### Dev container
+### Dev Container
 
-Dev container is configured for setup option2. The container creates below volumes to re-use resources among containers.
+The dev container is configured for setup option 2. The container creates the following volumes to reuse resources among containers:
 
-- zmk-dependencies: dependencies dir for setup option2
-- zmk-build: build output directory
-- zmk-root-user: /root, the same to ZMK's official dev container
+- `zmk-dependencies`: Dependencies directory for setup option 2
+- `zmk-build`: Build output directory
+- `zmk-root-user`: /root, same as ZMK's official dev container
 
 ### Web UI
 
 Please refer [./web/README.md](./web/README.md).
 
-## Test
+## Testing
 
-**ZMK firmware test**
+**ZMK Firmware Tests**
 
-`./tests` directory contains test config for posix to confirm module functionality and config for xiao board to confirm build works.
+The `./tests` directory contains test configurations for POSIX to verify module functionality and configurations for the Xiao board to confirm builds work correctly.
 
-Tests can be executed by below command:
+Tests can be executed with the following command:
 
 ```bash
-# Run all test case and verify results
+# Run all test cases and verify results
 python -m unittest
 ```
 
-If you want to execute west command manually, run below. (for zmk-build, the result is not verified.)
+If you want to execute West commands manually, use the following (note: for zmk-build, results are not verified):
 
-```
-# Build test firmware for xiao
-# `-m tests/zmk-config .` means tests/zmk-config and this repo are added as additional zephyr module
+```bash
+# Build test firmware for Xiao
+# `-m tests/zmk-config .` means tests/zmk-config and this repo are added as additional Zephyr modules
 west zmk-build tests/zmk-config/config -m tests/zmk-config .
 
-# Run zmk test cases
-# -m . is required to add this module to build
+# Run ZMK test cases
+# -m . is required to add this module to the build
 west zmk-test tests -m .
 ```
 
-**Web UI test**
+**Web UI Tests**
 
 The `./web` directory includes Jest tests. See [./web/README.md](./web/README.md#testing) for more details.
 
@@ -187,43 +202,42 @@ npm test
 
 ### GitHub Pages (Production)
 
-Github actions are pre-configured to publish web UI to github pages.
+GitHub Actions are pre-configured to publish the web UI to GitHub Pages.
 
-1. Visit Settings>Pages
-1. Set source as "Github Actions"
-1. Visit Actions>"Test and Build Web UI"
-1. Click "Run workflow"
+1. Visit Settings > Pages
+2. Set source as "GitHub Actions"
+3. Visit Actions > "Test and Build Web UI"
+4. Click "Run workflow"
 
-Then, the Web UI will be available in
-`https://<your github account>.github.io/<repository name>/` like https://cormoran.github.io/zmk-module-template-with-custom-studio-rpc.
+The Web UI will be available at
+`https://<your github account>.github.io/<repository name>/`, for example: https://cormoran.github.io/zmk-module-settings-rpc.
 
 ### Cloudflare Workers (Pull Request Preview)
 
 For previewing web UI changes in pull requests:
 
-1. Create a Cloudflare Workers project and configure secrets:
+1. Create a Cloudflare Workers project and configure the following secrets:
 
    - `CLOUDFLARE_API_TOKEN`: API token with Cloudflare Pages edit permission
    - `CLOUDFLARE_ACCOUNT_ID`: Your Cloudflare account ID
    - (Optional) `CLOUDFLARE_PROJECT_NAME`: Project name (defaults to `zmk-module-web-ui`)
-   - Enable "Preview URLs" feature in cloudflare the project
+   - Enable the "Preview URLs" feature in the Cloudflare project
 
-2. Optionally set up an `approval-required` environment in github repository settings requiring approval from repository owners
+2. Optionally, set up an `approval-required` environment in GitHub repository settings requiring approval from repository owners
 
 3. Create a pull request with web UI changes - the preview deployment will trigger automatically and wait for approval
 
-## Sync changes in template
+## Sync Changes from Template
 
-By running `Actions > Sync Changes in Template > Run workflow`, pull request is created to your repository to reflect changes in template repository.
+By running `Actions > Sync Changes in Template > Run workflow`, a pull request is created to your repository to reflect changes from the template repository.
 
-If the template contains changes in `.github/workflows/*`, registering your github personal access token as `GH_TOKEN` to repository secret is required.
-The fine-grained token requires write to contents, pull-requests and workflows.
-Please see detail in [actions-template-sync](https://github.com/AndreasAugustin/actions-template-sync).
+If the template contains changes in `.github/workflows/*`, you must register your GitHub personal access token as `GH_TOKEN` in the repository secrets.
+The fine-grained token requires write permissions for contents, pull requests, and workflows.
+For more details, see [actions-template-sync](https://github.com/AndreasAugustin/actions-template-sync).
 
-## More Info
+## More Information
 
-For more info on modules, you can read through through the
-[Zephyr modules page](https://docs.zephyrproject.org/3.5.0/develop/modules.html)
-and [ZMK's page on using modules](https://zmk.dev/docs/features/modules).
-[Zephyr's west manifest page](https://docs.zephyrproject.org/3.5.0/develop/west/manifest.html#west-manifests)
-may also be of use.
+For more information on modules, you can read through the
+[Zephyr modules page](https://docs.zephyrproject.org/3.5.0/develop/modules.html),
+[ZMK's page on using modules](https://zmk.dev/docs/features/modules), and
+[Zephyr's West manifest page](https://docs.zephyrproject.org/3.5.0/develop/west/manifest.html#west-manifests).
