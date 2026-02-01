@@ -210,7 +210,7 @@ GitHub Actions are pre-configured to publish the web UI to GitHub Pages.
 4. Click "Run workflow"
 
 The Web UI will be available at
-`https://<your github account>.github.io/<repository name>/`, for example: https://cormoran.github.io/zmk-module-settings-rpc.
+`https://<your GitHub account>.github.io/<repository name>/`, for example: https://cormoran.github.io/zmk-module-settings-rpc.
 
 ### Cloudflare Workers (Pull Request Preview)
 
