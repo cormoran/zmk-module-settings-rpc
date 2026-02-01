@@ -63,7 +63,7 @@ You can use this ZMK module with the following setup:
        # The below settings are required to use the unofficial Studio custom RPC feature
        - name: zmk
          remote: cormoran
-         revision: v0.3+custom-studio-protocol
+         revision: v0.3-branch+custom-studio-protocol+activity
          import:
            file: app/west.yml
    ```
