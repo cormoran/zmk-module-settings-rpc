@@ -1,7 +1,7 @@
 # Delete all unused properties.
 
 # Give your module a name
-name: zmk-module-template
+name: zmk-module-settings-rpc
 build:
   # List your dependencies
   # depends:
