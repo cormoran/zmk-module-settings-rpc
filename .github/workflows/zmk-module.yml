@@ -41,6 +41,8 @@ jobs:
           west init -l west --mf west-test-standalone.yml
           west update --narrow
           west zephyr-export
+      - name: Test activity RPC wire contract
+        run: python3 tests/activity/run.py
       - name: Test
         run: python3 -m unittest -v
       - name: Upload Build Artifacts

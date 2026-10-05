@@ -155,7 +155,7 @@ static void send_activity_settings_notification(uint32_t idle_ms,
     int subsystem_idx = get_subsystem_index();
     if (subsystem_idx < 0) {
         LOG_ERR("Failed to get subsystem index");
-        return -ENOENT;
+        return;
     }
     zmk_settings_Notification notification =
         zmk_settings_Notification_init_zero;
@@ -193,6 +193,7 @@ static int handle_get_activity_settings(
         zmk_settings_GetActivitySettingsResponse_init_zero;
 
     // Get current settings from ZMK activity subsystem
+    result.has_settings     = true;
     result.settings.idle_ms  = zmk_activity_get_idle_ms();
     result.settings.sleep_ms = zmk_activity_get_sleep_ms();
 

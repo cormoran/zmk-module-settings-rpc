@@ -168,6 +168,24 @@ Please refer [./web/README.md](./web/README.md).
 
 **ZMK Firmware Tests**
 
+The host protocol check compiles the complete production RPC handler with the
+real generated nanopb schema and the production event listeners, using
+controlled ZMK activity/event/framework interfaces. It verifies encoded getter
+presence and values (including both
+timeouts disabled and uint32 limits), GetAll notifications, valid writes,
+setter failures and malformed/unsupported requests. It also verifies applying
+relayed settings, ignoring self-originated changes and reporting peripheral
+settings. Standalone, split-central (with/without relay) and peripheral variants
+run optimized and under ASan/UBSan. It does not test Studio transport,
+radio delivery, real event scheduling or timeout validation policy.
+
+```bash
+# After west update, with Python, protobuf/protoc and a C compiler available:
+python3 tests/activity/run.py
+# Outside a west workspace, select an existing nanopb checkout:
+NANOPB_SOURCE=/path/to/nanopb python3 tests/activity/run.py
+```
+
 The `./tests` directory contains test configurations for POSIX to verify module functionality and configurations for the Xiao board to confirm builds work correctly.
 
 Tests can be executed with the following command:
